@@ -19,21 +19,34 @@ app.get('/price/:appid/:region', async (req, res) => {
 });
 
 app.get('/specials', async (req, res) => {
-  const sample = [
-    {
-      appid: "289070",
-      name: "Civilization VI",
-      img: "https://cdn.cloudflare.steamstatic.com/steam/apps/289070/capsule_616x353.jpg",
-      old: 83986,
-      new: 4186,
-      discount: 95,
-      url: "https://store.steampowered.com/app/289070/"
-    }
-  ];
-  res.json(sample);
+  try {
+    const specialsUrl = 'https://store.steampowered.com/api/featuredcategories?cc=ua&l=russian';
+    const response = await fetch(specialsUrl);
+    const json = await response.json();
+    const specials = json.specials.items;
+
+    const seen = new Set();
+    const filtered = specials
+      .filter(item => item.discount_percent > 0 && !seen.has(item.id) && seen.add(item.id))
+      .map(game => ({
+        appid: game.id.toString(),
+        name: game.name,
+        img: game.header_image,
+        old: game.original_price || 0,
+        new: game.final_price || 0,
+        discount: game.discount_percent,
+        url: `https://store.steampowered.com/app/${game.id}/`
+      }));
+
+    res.json(filtered);
+  } catch (error) {
+    console.error('Ошибка получения specials:', error);
+    res.status(500).json({ error: 'Ошибка загрузки акций со Steam' });
+  }
 });
 
-app.listen(process.env.PORT || 10000);
+// Слушаем на порту Render
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
