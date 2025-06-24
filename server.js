@@ -5,16 +5,39 @@ const app = express();
 
 app.use(cors());
 
-app.get('/price/:appid/:region', async (req, res) => {
-  const { appid, region } = req.params;
+app.get('/specials', async (req, res) => {
   try {
-    const steamURL = `https://store.steampowered.com/api/appdetails?appids=${appid}&cc=${region}&l=russian`;
+    const steamURL = 'https://store.steampowered.com/api/featuredcategories?cc=ua&l=russian';
     const response = await fetch(steamURL);
     const data = await response.json();
-    res.json(data);
+
+    const games = data.specials?.items || [];
+    const seenAppIds = new Set(); // Используем Set для отслеживания appid
+    const uniqueGames = [];
+
+    for (const game of games) {
+      if (game.discount_percent <= 0) continue;
+      
+      // Проверяем дубликаты по appid
+      if (seenAppIds.has(game.id)) continue;
+
+      seenAppIds.add(game.id); // Регистрируем новый appid
+      
+      uniqueGames.push({
+        appid: game.id.toString(),
+        name: game.name,
+        img: game.header_image,
+        old: game.original_price || 0,
+        new: game.final_price || 0,
+        discount: game.discount_percent,
+        url: `https://store.steampowered.com/app/${game.id}/`
+      });
+    }
+
+    res.json(uniqueGames);
   } catch (err) {
-    console.error(`Ошибка Steam API для ${appid}:`, err);
-    res.status(500).json({ error: 'Steam API fetch error' });
+    console.error('Ошибка при загрузке specials:', err);
+    res.status(500).json({ error: 'Ошибка загрузки скидок' });
   }
 });
 
@@ -27,15 +50,16 @@ app.get('/specials', async (req, res) => {
     const games = data.specials?.items || [];
 
     // 🔍 Удаляем дубликаты по IMG (header_image) — 100% надёжно
-    const seenImages = new Set();
-    const uniqueGames = [];
-
-    for (const game of games) {
-      if (game.discount_percent <= 0) continue;
-      if (seenImages.has(game.header_image)) continue;
-
-      seenImages.add(game.header_image);
-
+    // В обработчике данных
+const seen = new Set();
+const uniqueGames = data.filter(item => {
+  if (seen.has(item.appid)) {
+    console.warn("Обнаружен дубликат:", item.appid);
+    return false;
+  }
+  seen.add(item.appid);
+  return true;
+});
       uniqueGames.push({
         appid: game.id.toString(),
         name: game.name,
