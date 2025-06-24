@@ -5,7 +5,6 @@ const app = express();
 
 app.use(cors());
 
-// 📦 Получение цены по appid
 app.get('/price/:appid/:region', async (req, res) => {
   const { appid, region } = req.params;
   try {
@@ -19,7 +18,6 @@ app.get('/price/:appid/:region', async (req, res) => {
   }
 });
 
-// 🎮 Получение игр со скидками
 app.get('/specials', async (req, res) => {
   try {
     const steamURL = 'https://store.steampowered.com/api/featuredcategories?cc=ua&l=russian';
@@ -28,18 +26,17 @@ app.get('/specials', async (req, res) => {
 
     const games = data.specials?.items || [];
 
-    // ✂ Удаляем дубликаты по очищенному названию (без знаков, регистра и пробелов)
-    const normalize = str => str.toLowerCase().replace(/\s+/g, '').replace(/[^a-zа-яё0-9]/gi, '');
-    const seen = new Set();
-    const unique = [];
+    // 🔍 Удаляем дубликаты по IMG (header_image) — 100% надёжно
+    const seenImages = new Set();
+    const uniqueGames = [];
 
     for (const game of games) {
       if (game.discount_percent <= 0) continue;
-      const key = normalize(game.name);
-      if (seen.has(key)) continue;
-      seen.add(key);
+      if (seenImages.has(game.header_image)) continue;
 
-      unique.push({
+      seenImages.add(game.header_image);
+
+      uniqueGames.push({
         appid: game.id.toString(),
         name: game.name,
         img: game.header_image,
@@ -50,14 +47,14 @@ app.get('/specials', async (req, res) => {
       });
     }
 
-    res.json(unique);
+    res.json(uniqueGames);
   } catch (err) {
-    console.error('Ошибка загрузки данных со Steam:', err);
-    res.status(500).json({ error: 'Ошибка при получении списка акций' });
+    console.error('Ошибка при загрузке specials:', err);
+    res.status(500).json({ error: 'Ошибка загрузки скидок' });
   }
 });
 
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-  console.log(`✅ Сервер запущен на порту ${PORT}`);
+  console.log(`✅ Сервер работает на порту ${PORT}`);
 });
