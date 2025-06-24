@@ -1,14 +1,10 @@
 {
-  "name": "steam-proxy-server",
+  "name": "steam-cors-proxy",
   "version": "1.0.0",
-  "description": "Proxy server to bypass Steam API CORS restrictions",
-  "main": "server.js",
-  "scripts": {
-    "start": "node server.js"
-  },
+  "type": "module",
+  "main": "index.js",
   "dependencies": {
-    "cors": "^2.8.5",
-    "express": "^4.18.2",
-    "node-fetch": "^2.6.7"
+    "express": "^4.19.2",
+    "node-fetch": "^3.4.1"
   }
 }
