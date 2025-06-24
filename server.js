@@ -5,6 +5,7 @@ const app = express();
 
 app.use(cors());
 
+// Получение цены конкретной игры
 app.get('/price/:appid/:region', async (req, res) => {
   const { appid, region } = req.params;
   try {
@@ -18,14 +19,15 @@ app.get('/price/:appid/:region', async (req, res) => {
   }
 });
 
+// Получение списка всех игр со скидкой
 app.get('/specials', async (req, res) => {
   try {
-    const specialsUrl = 'https://store.steampowered.com/api/featuredcategories?cc=ua&l=russian';
-    const response = await fetch(specialsUrl);
+    const steamURL = 'https://store.steampowered.com/api/featuredcategories?cc=ua&l=russian';
+    const response = await fetch(steamURL);
     const json = await response.json();
     const specials = json.specials.items;
 
-    // ✅ удаление дубликатов по имени игры
+    // ✅ удаление дубликатов по названию игры
     const seen = new Set();
     const filtered = specials
       .filter(item => {
@@ -45,12 +47,13 @@ app.get('/specials', async (req, res) => {
       }));
 
     res.json(filtered);
-  } catch (error) {
-    console.error('Ошибка получения specials:', error);
-    res.status(500).json({ error: 'Ошибка загрузки акций со Steam' });
+  } catch (err) {
+    console.error('Ошибка загрузки акций:', err);
+    res.status(500).json({ error: 'Ошибка загрузки specials' });
   }
 });
 
+// Старт сервера
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
