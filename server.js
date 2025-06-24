@@ -1,117 +1,53 @@
+// 📦 Node.js + Express сервер для постраничной загрузки скидок со Steam
+
 const express = require('express');
 const fetch = require('node-fetch');
 const cors = require('cors');
+
 const app = express();
+const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 
-// Middleware для логирования всех запросов
-app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} ${req.method} ${req.url}`);
-  next();
-});
-
-app.get('/price/:appid/:region', async (req, res) => {
-  const { appid, region } = req.params;
-  try {
-    console.log(`Запрос цены для appid=${appid}, регион=${region}`);
-    const steamURL = `https://store.steampowered.com/api/appdetails?appids=${appid}&cc=${region}&l=russian`;
-    const response = await fetch(steamURL);
-    
-    if (!response.ok) {
-      throw new Error(`Steam API ответил с кодом ${response.status}`);
-    }
-    
-    const data = await response.json();
-    res.json(data);
-  } catch (err) {
-    console.error(`Ошибка Steam API для ${appid}:`, err);
-    res.status(500).json({ 
-      error: 'Steam API fetch error',
-      message: err.message 
-    });
-  }
-});
+let cachedSpecials = [];
+let cacheTimestamp = 0;
+const CACHE_DURATION = 5 * 60 * 1000; // 5 минут
 
 app.get('/specials', async (req, res) => {
-  try {
-    console.log('Запрос специальных предложений...');
-    const steamURL = 'https://store.steampowered.com/api/featuredcategories?cc=ua&l=russian';
-    
-    // Выполняем запрос к Steam API
-    const steamResponse = await fetch(steamURL);
-    
-    if (!steamResponse.ok) {
-      throw new Error(`Steam API ответил с кодом ${steamResponse.status}`);
-    }
-    
-    const steamData = await steamResponse.json();
-    
-    if (!steamData.specials || !steamData.specials.items) {
-      throw new Error('Неверный формат ответа от Steam API');
-    }
-    
-    const games = steamData.specials.items;
-    console.log(`Получено ${games.length} игр со скидками`);
-    
-    const seenAppIds = new Set();
-    const uniqueGames = [];
-    const duplicates = [];
+  const offset = parseInt(req.query.offset || '0', 10);
+  const limit = parseInt(req.query.limit || '10', 10);
 
-    for (const game of games) {
-      // Пропускаем игры без скидки
-      if (!game.discount_percent || game.discount_percent <= 0) {
-        continue;
+  try {
+    // Используем кэш если он свежий
+    if (Date.now() - cacheTimestamp > CACHE_DURATION) {
+      const response = await fetch('https://store.steampowered.com/api/featuredcategories');
+      const data = await response.json();
+
+      if (!data.specials || !Array.isArray(data.specials.items)) {
+        throw new Error('Invalid Steam API structure');
       }
-      
-      const appid = game.id.toString();
-      
-      // Проверка дубликатов
-      if (seenAppIds.has(appid)) {
-        duplicates.push({
-          appid,
-          name: game.name,
-          img: game.header_image
-        });
-        continue;
-      }
-      
-      seenAppIds.add(appid);
-      
-      uniqueGames.push({
-        appid,
-        name: game.name,
-        img: game.header_image,
-        old: game.original_price || 0,
-        new: game.final_price || 0,
-        discount: game.discount_percent,
-        url: `https://store.steampowered.com/app/${game.id}/`
-      });
+
+      cachedSpecials = data.specials.items.map(item => ({
+        appid: item.id,
+        name: item.name,
+        img: item.header_image,
+        old: item.original_price,
+        new: item.final_price,
+        discount: item.discount_percent,
+        url: `https://store.steampowered.com/app/${item.id}/`
+      }));
+
+      cacheTimestamp = Date.now();
     }
-    
-    console.log(`Уникальные игры: ${uniqueGames.length}`);
-    console.log(`Дубликаты: ${duplicates.length}`);
-    
-    if (duplicates.length > 0) {
-      console.log('Найденные дубликаты:');
-      duplicates.forEach(dup => {
-        console.log(`- ${dup.appid}: ${dup.name} (${dup.img})`);
-      });
-    }
-    
-    // Отправляем уникальные игры клиенту
-    res.json(uniqueGames);
+
+    const sliced = cachedSpecials.slice(offset, offset + limit);
+    res.json(sliced);
   } catch (err) {
-    console.error('Ошибка при загрузке specials:', err);
-    res.status(500).json({ 
-      error: 'Ошибка загрузки скидок',
-      message: err.message 
-    });
+    console.error('Ошибка загрузки с Steam:', err);
+    res.status(500).json({ error: 'Steam fetch failed' });
   }
 });
 
-const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-  console.log(`✅ Сервер работает на порту ${PORT}`);
-  console.log(`URL для проверки: http://localhost:${PORT}/specials`);
+  console.log(`✅ Steam proxy specials API running on port ${PORT}`);
 });
