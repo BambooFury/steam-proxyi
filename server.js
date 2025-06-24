@@ -25,9 +25,15 @@ app.get('/specials', async (req, res) => {
     const json = await response.json();
     const specials = json.specials.items;
 
+    // ✅ удаление дубликатов по имени игры
     const seen = new Set();
     const filtered = specials
-      .filter(item => item.discount_percent > 0 && !seen.has(item.id) && seen.add(item.id))
+      .filter(item => {
+        const key = item.name.trim().toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return item.discount_percent > 0;
+      })
       .map(game => ({
         appid: game.id.toString(),
         name: game.name,
@@ -45,7 +51,6 @@ app.get('/specials', async (req, res) => {
   }
 });
 
-// Слушаем на порту Render
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
