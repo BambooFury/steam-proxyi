@@ -5,7 +5,7 @@ const app = express();
 
 app.use(cors());
 
-// Получение цены конкретной игры
+// 📦 Получение цены по appid
 app.get('/price/:appid/:region', async (req, res) => {
   const { appid, region } = req.params;
   try {
@@ -19,26 +19,27 @@ app.get('/price/:appid/:region', async (req, res) => {
   }
 });
 
-// Получение всех скидок
+// 🎮 Получение игр со скидками
 app.get('/specials', async (req, res) => {
   try {
     const steamURL = 'https://store.steampowered.com/api/featuredcategories?cc=ua&l=russian';
     const response = await fetch(steamURL);
-    const json = await response.json();
-    const specials = json.specials.items;
+    const data = await response.json();
 
-    // Удаляем дубликаты по нормализованному названию
-    const normalize = str => str.toLowerCase().replace(/[^a-zа-яё0-9]/gi, '');
+    const games = data.specials?.items || [];
+
+    // ✂ Удаляем дубликаты по очищенному названию (без знаков, регистра и пробелов)
+    const normalize = str => str.toLowerCase().replace(/\s+/g, '').replace(/[^a-zа-яё0-9]/gi, '');
     const seen = new Set();
+    const unique = [];
 
-    const filtered = specials
-      .filter(item => {
-        const key = normalize(item.name);
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return item.discount_percent > 0;
-      })
-      .map(game => ({
+    for (const game of games) {
+      if (game.discount_percent <= 0) continue;
+      const key = normalize(game.name);
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      unique.push({
         appid: game.id.toString(),
         name: game.name,
         img: game.header_image,
@@ -46,16 +47,17 @@ app.get('/specials', async (req, res) => {
         new: game.final_price || 0,
         discount: game.discount_percent,
         url: `https://store.steampowered.com/app/${game.id}/`
-      }));
+      });
+    }
 
-    res.json(filtered);
+    res.json(unique);
   } catch (err) {
-    console.error('Ошибка загрузки specials:', err);
-    res.status(500).json({ error: 'Ошибка загрузки specials' });
+    console.error('Ошибка загрузки данных со Steam:', err);
+    res.status(500).json({ error: 'Ошибка при получении списка акций' });
   }
 });
 
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`✅ Сервер запущен на порту ${PORT}`);
 });
