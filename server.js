@@ -37,19 +37,21 @@ app.get('/specials', async (req, res) => {
   try {
     console.log('Запрос специальных предложений...');
     const steamURL = 'https://store.steampowered.com/api/featuredcategories?cc=ua&l=russian';
-    const response = await fetch(steamURL);
     
-    if (!response.ok) {
-      throw new Error(`Steam API ответил с кодом ${response.status}`);
+    // Выполняем запрос к Steam API
+    const steamResponse = await fetch(steamURL);
+    
+    if (!steamResponse.ok) {
+      throw new Error(`Steam API ответил с кодом ${steamResponse.status}`);
     }
     
-    const data = await response.json();
+    const steamData = await steamResponse.json();
     
-    if (!data.specials || !data.specials.items) {
+    if (!steamData.specials || !steamData.specials.items) {
       throw new Error('Неверный формат ответа от Steam API');
     }
     
-    const games = data.specials.items;
+    const games = steamData.specials.items;
     console.log(`Получено ${games.length} игр со скидками`);
     
     const seenAppIds = new Set();
@@ -97,6 +99,7 @@ app.get('/specials', async (req, res) => {
       });
     }
     
+    // Отправляем уникальные игры клиенту
     res.json(uniqueGames);
   } catch (err) {
     console.error('Ошибка при загрузке specials:', err);
