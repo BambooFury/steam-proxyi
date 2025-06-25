@@ -12,19 +12,31 @@ app.use((req, res, next) => {
 
 // GET /specials — список игр со скидками
 app.get('/specials', async (req, res) => {
+  const region = req.query.cc || 'us';
   try {
-    const region = req.query.cc || 'us';
-    const url = `https://store.steampowered.com/api/featuredcategories?cc=${region}`;
-    const response = await fetch(url);
+    const fcRes = await fetch(`https://store.steampowered.com/api/featuredcategories?cc=${region}`);
+    const ftRes = await fetch(`https://store.steampowered.com/api/featured?cc=${region}`);
 
-    const data = await response.json();
-    const specials = data?.specials?.items || [];
+    const fc = await fcRes.json();
+    const ft = await ftRes.json();
 
-    const games = specials.map(item => ({
+    const specials = fc?.specials?.items || [];
+    const featured = ft?.featured || [];
+
+    // Объединяем и убираем дубликаты по appid
+    const combined = [...specials, ...featured];
+    const seen = new Set();
+    const unique = combined.filter(item => {
+      if (seen.has(item.id)) return false;
+      seen.add(item.id);
+      return true;
+    });
+
+    const games = unique.map(item => ({
       name: item.name,
+      appid: item.id,
       url: `https://store.steampowered.com/app/${item.id}`,
       img: item.header_image,
-      appid: item.id,
       discount: item.discount_percent,
       old: item.original_price,
       new: item.final_price
@@ -32,10 +44,11 @@ app.get('/specials', async (req, res) => {
 
     res.json(games);
   } catch (err) {
-    console.error('Ошибка получения specials:', err);
+    console.error('❌ Ошибка получения specials:', err);
     res.status(500).json({ error: 'Steam Specials fetch error', details: err.message });
   }
 });
+
 
 // GET /price?appid=123&cc=us — цена для игры
 app.get('/price', async (req, res) => {
