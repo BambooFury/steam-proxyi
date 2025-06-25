@@ -22,12 +22,17 @@ app.get('/specials', async (req, res) => {
     );
 
     const responses = await Promise.all(
-      pageUrls.map(url => fetch(url).then(r => r.json()))
+      pageUrls.map(url =>
+        fetch(url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+          }
+        }).then(r => r.json())
+      )
     );
 
     const allItems = responses.flatMap(res => res?.results || []);
 
-    // Удаляем дубликаты
     const seen = new Set();
     const unique = allItems.filter(item => {
       if (!item?.id || seen.has(item.id)) return false;
@@ -45,12 +50,14 @@ app.get('/specials', async (req, res) => {
       new: item.final_price
     }));
 
+    console.log(`🎯 Отправлено ${result.length} игр со скидками`);
     res.json(result);
   } catch (err) {
-    console.error('❌ Ошибка при получении списка скидок:', err);
+    console.error('❌ Ошибка при получении скидок:', err);
     res.status(500).json({ error: 'Steam Specials fetch error', details: err.message });
   }
 });
+
 
 
 // GET /price?appid=123&cc=us — цена для игры
