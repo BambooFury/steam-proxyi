@@ -43,7 +43,7 @@ if (seen.has(id)) return;
 seen.add(id);
 
 const name = el$.find('.search_name .title').text().trim();
-const img = `https://cdn.akamai.steamstatic.com/steam/apps/${id}/bd0746f8-31e3-4197-9a83-a089219e741d.png`;
+const img = `https://cdn.akamai.steamstatic.com/steam/apps/${id}/placeholder.png`;
 
         const discount = parseInt(el$.find('.search_discount span').text().replace('%', ''), 10) || 0;
 
