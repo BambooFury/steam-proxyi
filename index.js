@@ -13,36 +13,33 @@ app.use((req, res, next) => {
 // GET /specials — список игр со скидками
 app.get('/specials', async (req, res) => {
   const region = req.query.cc || 'us';
+  const maxPages = 4; // 4 × 50 = до 200 игр
+  const countPerPage = 50;
+
   try {
-    const fcRes = await fetch(`https://store.steampowered.com/api/featuredcategories?cc=${region}`);
-    const ftRes = await fetch(`https://store.steampowered.com/api/featured?cc=${region}`);
+    const pageUrls = Array.from({ length: maxPages }, (_, i) =>
+      `https://store.steampowered.com/search/results/?specials=1&count=${countPerPage}&start=${i * countPerPage}&cc=${region}&l=english&json=1`
+    );
 
-    const fc = await fcRes.json();
-    const ft = await ftRes.json();
+    const responses = await Promise.all(
+      pageUrls.map(url => fetch(url).then(r => r.json()))
+    );
 
-    // Объединяем все платформы и категории
-    const specials = [
-      ...(fc?.specials?.items || []),
-      ...(ft?.featured || []),
-      ...(ft?.featured_win || []),
-      ...(ft?.featured_mac || []),
-      ...(ft?.featured_linux || [])
-    ];
+    const allItems = responses.flatMap(res => res?.results || []);
 
-    // Убираем дубликаты по appid
+    // Удаляем дубликаты
     const seen = new Set();
-    const unique = specials.filter(item => {
+    const unique = allItems.filter(item => {
       if (!item?.id || seen.has(item.id)) return false;
       seen.add(item.id);
       return true;
     });
 
-    // Мапим в нужный формат
     const result = unique.map(item => ({
       name: item.name,
       appid: item.id,
       url: `https://store.steampowered.com/app/${item.id}`,
-      img: item.header_image,
+      img: item.tiny_image || '',
       discount: item.discount_percent,
       old: item.original_price,
       new: item.final_price
@@ -50,10 +47,11 @@ app.get('/specials', async (req, res) => {
 
     res.json(result);
   } catch (err) {
-    console.error('❌ Ошибка получения specials:', err);
+    console.error('❌ Ошибка при получении списка скидок:', err);
     res.status(500).json({ error: 'Steam Specials fetch error', details: err.message });
   }
 });
+
 
 // GET /price?appid=123&cc=us — цена для игры
 app.get('/price', async (req, res) => {
