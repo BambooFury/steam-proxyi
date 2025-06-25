@@ -18,19 +18,33 @@ app.get('/specials', async (req, res) => {
     const ftRes = await fetch(`https://store.steampowered.com/api/featured?cc=${region}`);
 
     const fc = await fcRes.json();
-    const ft = await ftRes.json();
+const ft = await ftRes.json();
 
-    const specials = fc?.specials?.items || [];
-    const featured = ft?.featured || [];
+const specials = [
+  ...(fc?.specials?.items || []),
+  ...(ft?.featured || []),
+  ...(ft?.featured_win || []),
+  ...(ft?.featured_mac || []),
+  ...(ft?.featured_linux || [])
+];
 
-    // Объединяем и убираем дубликаты по appid
-    const combined = [...specials, ...featured];
-    const seen = new Set();
-    const unique = combined.filter(item => {
-      if (seen.has(item.id)) return false;
-      seen.add(item.id);
-      return true;
-    });
+const seen = new Set();
+const unique = specials.filter(item => {
+  if (seen.has(item.id)) return false;
+  seen.add(item.id);
+  return true;
+});
+
+const games = unique.map(item => ({
+  name: item.name,
+  appid: item.id,
+  url: `https://store.steampowered.com/app/${item.id}`,
+  img: item.header_image,
+  discount: item.discount_percent,
+  old: item.original_price,
+  new: item.final_price
+}));
+
 
     const games = unique.map(item => ({
       name: item.name,
