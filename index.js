@@ -4,16 +4,14 @@ const fetch = require('node-fetch');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// CORS middleware
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   next();
 });
 
-// Прокси для получения скидок
 app.get('/specials', async (req, res) => {
   try {
-    const region = req.query.cc || 'us'; // поддержка разных регионов
+    const region = req.query.cc || 'us';
     const url = `https://store.steampowered.com/api/featuredcategories?cc=${region}`;
     const response = await fetch(url);
 
