@@ -39,11 +39,12 @@ app.get('/specials', async (req, res) => {
         const match = url.match(/app\/(\d+)/);
         if (!match) return;
         const id = Number(match[1]);
-        if (seen.has(id)) return;
-        seen.add(id);
+if (seen.has(id)) return;
+seen.add(id);
 
-        const name = el$.find('.search_name .title').text().trim();
-        const img = el$.find('img').attr('src');
+const name = el$.find('.search_name .title').text().trim();
+const img = `https://cdn.akamai.steamstatic.com/steam/apps/${id}/header.jpg`;
+
         const discount = parseInt(el$.find('.search_discount span').text().replace('%', ''), 10) || 0;
 
         const priceText = el$.find('.search_price').text().trim().replace(/\s+/g, ' ');
