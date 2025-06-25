@@ -10,27 +10,33 @@ app.use((req, res, next) => {
   next();
 });
 
-// Прокси для цены по appid
+// Прокси для получения скидок
 app.get('/specials', async (req, res) => {
   try {
-    const url = 'https://store.steampowered.com/search/results/?specials=1&count=50&cc=us&format=json';
+    const region = req.query.cc || 'us'; // поддержка разных регионов
+    const url = `https://store.steampowered.com/api/featuredcategories?cc=${region}`;
     const response = await fetch(url);
-    const json = await response.json();
 
-    const games = (json?.results || []).map(item => ({
+    const data = await response.json();
+    const specials = data?.specials?.items || [];
+
+    const games = specials.map(item => ({
       name: item.name,
       url: `https://store.steampowered.com/app/${item.id}`,
-      img: item.tiny_image,
+      img: item.header_image,
       appid: item.id,
       discount: item.discount_percent,
       old: item.original_price,
       new: item.final_price
     }));
 
-    res.setHeader('Access-Control-Allow-Origin', '*');
     res.json(games);
   } catch (err) {
     console.error('Ошибка получения specials:', err);
     res.status(500).json({ error: 'Steam Specials fetch error', details: err.message });
   }
+});
+
+app.listen(PORT, () => {
+  console.log(`Сервер запущен на порту ${PORT}`);
 });
